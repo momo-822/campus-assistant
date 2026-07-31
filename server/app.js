@@ -58,11 +58,18 @@ function seedData() {
     const db = getDb()
     const bcrypt = require('bcryptjs')
 
-    // 检查是否已存在数据
-    const canteenCount = db.prepare('SELECT COUNT(*) as cnt FROM canteens').get().cnt
-    if (canteenCount > 0) {
-      logger.info('数据库已有数据，跳过种子数据')
+    // 检查是否已有最新数据
+    const reviewCount = db.prepare('SELECT COUNT(*) as cnt FROM reviews').get().cnt
+    if (reviewCount >= 17) {
+      logger.info('数据库已有完整种子数据，跳过')
       return
+    }
+
+    // 如果数据不完整，先清空再重新插入
+    logger.info('🧹 清空旧数据...')
+    const tables = ['homework', 'favorites', 'reviews', 'trade_items', 'lost_found', 'schedules', 'users', 'canteens']
+    for (const t of tables) {
+      db.prepare(`DELETE FROM ${t}`).run()
     }
 
     logger.info('🌱 开始插入种子数据...')
