@@ -9,16 +9,93 @@ import { showToast } from '../components/Toast'
 
 type Tab = 'info' | 'favorite-items' | 'favorite-posts'
 
+/** 根据用户名生成首字母头像颜色 */
+function getInitialColor(name: string): string {
+  const colors = [
+    'bg-pink-500', 'bg-purple-500', 'bg-indigo-500', 'bg-blue-500',
+    'bg-teal-500', 'bg-green-500', 'bg-yellow-500', 'bg-orange-500',
+    'bg-red-500', 'bg-rose-500',
+  ]
+  let hash = 0
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash)
+  }
+  return colors[Math.abs(hash) % colors.length]
+}
+
+/** 获取首字母 */
+function getInitials(name: string): string {
+  return name.slice(0, 2).toUpperCase()
+}
+
+/** 退出确认弹窗 */
+function ConfirmModal({
+  open,
+  title,
+  message,
+  confirmText,
+  cancelText,
+  onConfirm,
+  onCancel,
+}: {
+  open: boolean
+  title: string
+  message: string
+  confirmText?: string
+  cancelText?: string
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  if (!open) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* 遮罩 */}
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onCancel} />
+      {/* 弹窗 */}
+      <div className="relative bg-white rounded-3xl p-6 shadow-2xl max-w-sm w-full mx-4 animate-fade-in-down">
+        <h3 className="text-lg font-bold text-gray-900 mb-2">{title}</h3>
+        <p className="text-sm text-gray-500 mb-6">{message}</p>
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            className="flex-1 py-2.5 rounded-xl bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200 transition-colors"
+          >
+            {cancelText || '取消'}
+          </button>
+          <button
+            onClick={onConfirm}
+            className="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors"
+          >
+            {confirmText || '确认'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState<Tab>('info')
   const { user, isAuthenticated, logout, loading } = useAuth()
   const { favoriteItems, favoritePosts, toggleItem, togglePost } = useFavorites()
+  const [avatarError, setAvatarError] = useState(false)
+  const [showLogoutModal, setShowLogoutModal] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
   const navigate = useNavigate()
 
   const handleLogout = async () => {
-    await logout()
-    showToast('已退出登录', 'success')
-    navigate('/')
+    setLoggingOut(true)
+    try {
+      await logout()
+      showToast('已退出登录', 'success')
+      navigate('/')
+    } catch {
+      showToast('退出登录失败', 'error')
+    } finally {
+      setLoggingOut(false)
+      setShowLogoutModal(false)
+    }
   }
 
   const favoritedItems = mockItems.filter((item) => favoriteItems.includes(item.id))
@@ -73,6 +150,17 @@ export default function ProfilePage() {
         <h1 className="text-2xl font-bold text-gray-900 mb-2">个人中心</h1>
         <p className="text-sm text-gray-500 mb-8">管理你的个人信息和收藏</p>
 
+        {/* 退出确认弹窗 */}
+        <ConfirmModal
+          open={showLogoutModal}
+          title="确认退出"
+          message="退出登录后需要重新登录才能使用完整功能，确定要退出吗？"
+          confirmText={loggingOut ? '退出中...' : '确认退出'}
+          cancelText="取消"
+          onConfirm={handleLogout}
+          onCancel={() => setShowLogoutModal(false)}
+        />
+
         <div className="flex gap-1 mb-8 bg-gray-100 rounded-xl p-1">
           {tabs.map((tab) => (
             <button
@@ -98,21 +186,31 @@ export default function ProfilePage() {
           <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
             <div className="flex items-center gap-6 mb-8">
               {user && (
-                <img
-                  src={user.avatar}
-                  alt={user.name}
-                  className="w-20 h-20 rounded-full bg-pink-100"
-                />
-              )}
-              {user && (
-                <div className="flex-1">
-                  <h2 className="text-xl font-bold text-gray-900">{user.name}</h2>
-                  <p className="text-sm text-gray-500 mt-1">{user.studentId}</p>
-                  <p className="text-sm text-gray-500">{user.email}</p>
-                </div>
+                <>
+                  {/* 头像：优先显示图片，加载失败显示首字母 */}
+                  {!avatarError ? (
+                    <img
+                      src={user.avatar}
+                      alt={user.name}
+                      className="w-20 h-20 rounded-full object-cover bg-pink-100"
+                      onError={() => setAvatarError(true)}
+                    />
+                  ) : (
+                    <div
+                      className={`w-20 h-20 rounded-full flex items-center justify-center text-white text-xl font-bold ${getInitialColor(user.name)}`}
+                    >
+                      {getInitials(user.name)}
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <h2 className="text-xl font-bold text-gray-900">{user.name}</h2>
+                    <p className="text-sm text-gray-500 mt-1">{user.studentId}</p>
+                    <p className="text-sm text-gray-500">{user.email}</p>
+                  </div>
+                </>
               )}
               <button
-                onClick={handleLogout}
+                onClick={() => setShowLogoutModal(true)}
                 className="px-4 py-2 bg-red-50 text-red-600 rounded-xl text-sm font-medium hover:bg-red-100 transition-colors"
               >
                 退出登录
