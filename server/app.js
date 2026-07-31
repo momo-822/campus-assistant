@@ -38,10 +38,13 @@ app.get('/health', (_req, res) => {
 
 // ─── SPA 降级：所有非 API 请求返回 index.html ─────────
 app.get('*', (req, res) => {
+  // 健康检查已在前面处理，这里只放行 /api /uploads /health
   if (req.path.startsWith('/api') || req.path.startsWith('/uploads') || req.path === '/health') {
     return res.status(404).json({ success: false, code: 404, message: '接口不存在' })
   }
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'))
+  const indexPath = path.join(__dirname, 'dist', 'index.html')
+  logger.info(`SPA serve: ${req.path} -> ${indexPath}`)
+  res.sendFile(indexPath)
 })
 
 // ─── 错误处理 ──────────────────────────────────────────
