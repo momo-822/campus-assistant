@@ -24,8 +24,9 @@ app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 app.use(morgan('dev'))
 
-// ─── 静态文件（可选） ──────────────────────────────────
+// ─── 静态文件 ──────────────────────────────────────────
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')))
+app.use(express.static(path.join(__dirname, 'dist')))
 
 // ─── 路由 ───────────────────────────────────────────────
 app.use('/api', routes)
@@ -33,6 +34,14 @@ app.use('/api', routes)
 // ─── 健康检查 ──────────────────────────────────────────
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString() })
+})
+
+// ─── SPA 降级：所有非 API 请求返回 index.html ─────────
+app.get('*', (req, res) => {
+  if (req.path.startsWith('/api') || req.path.startsWith('/uploads') || req.path === '/health') {
+    return res.status(404).json({ success: false, code: 404, message: '接口不存在' })
+  }
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'))
 })
 
 // ─── 错误处理 ──────────────────────────────────────────
